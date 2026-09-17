@@ -3,7 +3,6 @@ import tempfile
 
 import pymupdf as fitz
 from fastapi import FastAPI, HTTPException, UploadFile
-from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -14,7 +13,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = FastAPI(title="AI PDF Chatbot")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # In-memory state: lives as long as the server process, like the Chroma collection.
 pdfs = {}
@@ -29,11 +27,6 @@ class Settings(BaseModel):
 
 class Question(BaseModel):
     question: str
-
-
-@app.get("/")
-def index():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
 @app.get("/api/pdfs")
@@ -104,3 +97,7 @@ def ask(q: Question):
     if not settings["api_key"]:
         raise HTTPException(400, f"Set an API key for {settings['provider']} in Settings")
     return chatbot.ask(question, settings["provider"], settings["api_key"])
+
+
+# Serve the page (index.html, style.css, app.js) at the site root. Mounted last so /api routes win.
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

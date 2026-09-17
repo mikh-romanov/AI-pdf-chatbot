@@ -8,7 +8,15 @@ async function api(method, url, body) {
     options.headers = { "Content-Type": "application/json" };
     options.body = JSON.stringify(body);
   }
-  const res = await fetch(url, options);
+  let res;
+  try {
+    if (location.protocol === "file:") throw new TypeError("opened as a file");
+    res = await fetch(url, options);
+  } catch {
+    $("server-banner").hidden = false;
+    throw new Error("Can't reach the server. Start it and open http://127.0.0.1:8000");
+  }
+  $("server-banner").hidden = true;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const detail = typeof data.detail === "string" ? data.detail : `Request failed (${res.status})`;
@@ -105,11 +113,7 @@ zone.addEventListener("drop", (e) => uploadFiles(e.dataTransfer.files));
 /* ---------- Settings ---------- */
 
 function renderSettings(s) {
-  const select = $("provider");
-  if (!select.options.length) {
-    for (const p of s.providers) select.append(new Option(p, p));
-  }
-  select.value = s.provider;
+  $("provider").value = s.provider;
   const badge = $("key-status");
   badge.textContent = s.has_key ? "Key set" : "No key";
   badge.classList.toggle("ok", s.has_key);
@@ -236,5 +240,5 @@ $("ask-form").addEventListener("submit", async (e) => {
 
 /* ---------- Init ---------- */
 
-loadPdfs();
-api("GET", "/api/settings").then(renderSettings);
+loadPdfs().catch(() => {});
+api("GET", "/api/settings").then(renderSettings).catch(() => {});
