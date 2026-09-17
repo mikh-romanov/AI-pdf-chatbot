@@ -330,6 +330,7 @@ function scrollToEnd() {
 }
 
 function renderThread() {
+  hideSlip();
   const box = $("messages");
   box.replaceChildren();
   if (!chat.messages.length) {
@@ -365,13 +366,14 @@ function addAnswer(entry, kind, text, sources = [], { fresh = true } = {}) {
   else a.textContent = text;
 
   // Cited pages, grouped by file: the file name once, then a highlighter tab per page.
+  // Hovering, focusing or tapping a tab shows the text the answer was built from.
   const byFile = new Map();
   for (const s of sources) {
     if (!byFile.has(s.filename)) byFile.set(s.filename, []);
-    byFile.get(s.filename).push(s.page);
+    byFile.get(s.filename).push(s);
   }
   let i = 0;
-  for (const [filename, pages] of byFile) {
+  for (const [filename, fileSources] of byFile) {
     const group = document.createElement("div");
     group.className = "source";
     const name = document.createElement("span");
@@ -379,11 +381,14 @@ function addAnswer(entry, kind, text, sources = [], { fresh = true } = {}) {
     name.textContent = filename;
     const tabs = document.createElement("span");
     tabs.className = "tabs";
-    for (const page of [...pages].sort((x, y) => x - y)) {
-      const tab = document.createElement("span");
+    for (const source of [...fileSources].sort((x, y) => x.page - y.page)) {
+      const tab = document.createElement("button");
+      tab.type = "button";
       tab.className = "tab";
       tab.style.setProperty("--i", i++);
-      tab.textContent = `p. ${page}`;
+      tab.textContent = `p. ${source.page}`;
+      tab.setAttribute("aria-label", `Page ${source.page} of ${filename}: show the text used`);
+      attachExcerpt(tab, source);
       tabs.append(tab);
     }
     group.append(name, tabs);
@@ -394,6 +399,90 @@ function addAnswer(entry, kind, text, sources = [], { fresh = true } = {}) {
   scrollToEnd();
   return a;
 }
+
+/* ---------- Excerpt slip for a cited page ---------- */
+
+const slip = $("excerpt");
+let slipAnchor = null;
+let hideTimer = null;
+
+function fillSlip(source) {
+  $("excerpt-where").textContent = `${source.filename}, page ${source.page}`;
+  const body = $("excerpt-text");
+  body.replaceChildren();
+  const excerpts = source.excerpts || [];
+  if (!excerpts.length) {
+    const p = document.createElement("p");
+    p.className = "excerpt-missing";
+    p.textContent = "This answer was saved before excerpts were kept. Ask the question again to see the text.";
+    body.append(p);
+    return;
+  }
+  for (const text of excerpts) {
+    const p = document.createElement("p");
+    p.textContent = `…${text}…`; // chunks are cut mid-sentence, so mark both ends as partial
+    body.append(p);
+  }
+}
+
+function placeSlip(tab) {
+  const gap = 10;
+  const margin = 12;
+  const r = tab.getBoundingClientRect();
+  const w = slip.offsetWidth;
+  const h = slip.offsetHeight;
+  const left = Math.min(Math.max(r.left + r.width / 2 - w / 2, margin), innerWidth - w - margin);
+  const above = r.top - h - gap;
+  const top = above >= margin ? above : Math.min(r.bottom + gap, innerHeight - h - margin);
+  slip.style.left = `${left}px`;
+  slip.style.top = `${top}px`;
+}
+
+function showSlip(tab, source) {
+  clearTimeout(hideTimer);
+  if (slipAnchor && slipAnchor !== tab) slipAnchor.removeAttribute("aria-describedby");
+  slipAnchor = tab;
+  fillSlip(source);
+  slip.hidden = false;
+  $("excerpt-text").scrollTop = 0;
+  placeSlip(tab);
+  tab.setAttribute("aria-describedby", "excerpt");
+  tab.setAttribute("aria-expanded", "true");
+}
+
+function hideSlip() {
+  clearTimeout(hideTimer);
+  slip.hidden = true;
+  if (slipAnchor) {
+    slipAnchor.removeAttribute("aria-describedby");
+    slipAnchor.setAttribute("aria-expanded", "false");
+  }
+  slipAnchor = null;
+}
+
+// A short delay lets the pointer move from the tab onto the slip to scroll a long excerpt.
+function hideSlipSoon() {
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(hideSlip, 180);
+}
+
+function attachExcerpt(tab, source) {
+  tab.setAttribute("aria-expanded", "false");
+  tab.addEventListener("mouseenter", () => showSlip(tab, source));
+  tab.addEventListener("mouseleave", hideSlipSoon);
+  tab.addEventListener("focus", () => showSlip(tab, source));
+  tab.addEventListener("blur", hideSlipSoon);
+  tab.addEventListener("click", () => (slipAnchor === tab && !slip.hidden ? hideSlip() : showSlip(tab, source)));
+}
+
+slip.addEventListener("mouseenter", () => clearTimeout(hideTimer));
+slip.addEventListener("mouseleave", hideSlipSoon);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !slip.hidden) hideSlip(); });
+document.addEventListener("pointerdown", (e) => {
+  if (!slip.hidden && !slip.contains(e.target) && !e.target.closest(".tab")) hideSlip();
+});
+$("messages").addEventListener("scroll", () => { if (!slip.hidden) hideSlip(); });
+addEventListener("resize", () => { if (!slip.hidden) hideSlip(); });
 
 const question = $("question");
 

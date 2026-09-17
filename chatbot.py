@@ -71,13 +71,35 @@ def ask(question, provider, api_key, chat_id="default", history=()):
         prompt += f"Earlier in this conversation:\n{earlier}\n\n"
     prompt += f"Question: {question}"
 
-    sources = []
-    for m in metadatas:
-        source = {"filename": m["filename"], "page": m["page"]}
-        if source not in sources:
-            sources.append(source)
+    return {"answer": ask_llm(prompt, provider, api_key),
+            "sources": collect_sources(results["ids"][0], documents, metadatas)}
 
-    return {"answer": ask_llm(prompt, provider, api_key), "sources": sources}
+
+def collect_sources(ids, documents, metadatas):
+    """One source per (file, page), in the order they were found, with the text used from that page.
+
+    Chunks are cut every 800 characters, so neighbouring chunks of a page are joined back together
+    before being shown as one excerpt."""
+    pages = {}
+    for chunk_id, text, m in zip(ids, documents, metadatas):
+        key = (m["filename"], m["page"])
+        pages.setdefault(key, []).append((int(chunk_id.rsplit("-", 1)[1]), text))
+
+    sources = []
+    for (filename, page), chunks in pages.items():
+        excerpts, last = [], None
+        for index, text in sorted(chunks):
+            if last is not None and index == last + 1:
+                excerpts[-1] += text
+            else:
+                excerpts.append(text)
+            last = index
+        sources.append({
+            "filename": filename,
+            "page": page,
+            "excerpts": [" ".join(e.split()) for e in excerpts],
+        })
+    return sources
 
 
 if __name__ == '__main__':
