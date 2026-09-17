@@ -1,6 +1,8 @@
-import fitz
+import uuid
+
+import pymupdf as fitz
 import chromadb
-from llm import ask_llm
+from llm import ask_llm, get_provider_and_key
 
 
 def load_pdf(path):
@@ -16,28 +18,54 @@ def load_pdf(path):
 
 
 client = chromadb.Client()
-collection = client.create_collection(name="pdf")
+collection = client.get_or_create_collection(name="pdf")
 
-def index_pdf(path):
+
+def index_pdf(path, filename=None):
+    """Index a PDF and return (doc_id, number of chunks)."""
+    filename = filename or path
+    doc_id = uuid.uuid4().hex
     chunks = load_pdf(path)
-    collection.add(
-        documents=[c[0] for c in chunks],
-        ids=[f"{i}" for i in range(len(chunks))],
-        metadatas=[{"page": c[1]} for c in chunks]
+    if chunks:
+        collection.add(
+            documents=[c[0] for c in chunks],
+            ids=[f"{doc_id}-{i}" for i in range(len(chunks))],
+            metadatas=[{"page": c[1], "filename": filename, "doc_id": doc_id} for c in chunks]
+        )
+    return doc_id, len(chunks)
+
+
+def remove_pdf(doc_id):
+    collection.delete(where={"doc_id": doc_id})
+
+
+def ask(question, provider, api_key):
+    if collection.count() == 0:
+        return {"answer": "Upload a PDF first.", "sources": []}
+
+    results = collection.query(query_texts=[question], n_results=min(5, collection.count()))
+    documents = results["documents"][0]
+    metadatas = results["metadatas"][0]
+
+    context = "\n\n".join(
+        f"[{m['filename']} p.{m['page']}]\n{d}" for d, m in zip(documents, metadatas)
     )
-
-
-def ask(question):
-    results = collection.query(query_texts=[question], n_results=5)
-    context = "\n\n".join(results["documents"][0])
     prompt = f"Context:\n{context}\n\nQuestion: {question}"
-    return ask_llm(prompt)
+
+    sources = []
+    for m in metadatas:
+        source = {"filename": m["filename"], "page": m["page"]}
+        if source not in sources:
+            sources.append(source)
+
+    return {"answer": ask_llm(prompt, provider, api_key), "sources": sources}
 
 
 if __name__ == '__main__':
+    provider, api_key = get_provider_and_key()
     index_pdf('ai-pdf-chatbot-test.pdf')
     while True:
         q = input("\nAsk: ")
         if q == 'exit':
             break
-        print(ask(q))
+        print(ask(q, provider, api_key)["answer"])
