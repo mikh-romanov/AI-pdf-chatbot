@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PDF Chatbot</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <h1 class="brand">PDF Chatbot</h1>
+
+      <section class="panel">
+        <h2>Documents</h2>
+        <label id="dropzone" class="dropzone">
+          <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
+          <span class="dropzone-title">Drop PDFs here</span>
+          <span class="dropzone-hint">or click to choose files</span>
+        </label>
+        <p id="upload-status" class="status" hidden></p>
+        <ul id="pdf-list" class="pdf-list"></ul>
+        <p id="pdf-empty" class="muted">No PDFs uploaded yet.</p>
+      </section>
+
+      <section class="panel">
+        <h2>Settings</h2>
+        <form id="settings-form" class="settings">
+          <label>
+            <span>Provider</span>
+            <select id="provider"></select>
+          </label>
+          <label>
+            <span>API key</span>
+            <input id="api-key" type="password" autocomplete="off" placeholder="Paste your key">
+          </label>
+          <div class="settings-row">
+            <span id="key-status" class="badge">No key</span>
+            <button type="submit" class="btn">Save</button>
+          </div>
+        </form>
+      </section>
+    </aside>
+
+    <main class="chat">
+      <div id="messages" class="messages">
+        <div id="welcome" class="welcome">
+          <h2>Ask questions about your PDFs</h2>
+          <p>Upload one or more documents, set your provider and API key, then ask anything. All uploaded PDFs are searched together, and each answer lists the pages it used.</p>
+        </div>
+      </div>
+      <form id="ask-form" class="composer">
+        <textarea id="question" rows="1" placeholder="Ask a question…" required></textarea>
+        <button id="send" type="submit" class="btn btn-primary">Send</button>
+      </form>
+    </main>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>

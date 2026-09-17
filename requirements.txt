@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+pymupdf
+chromadb
+openai
+anthropic
+google-generativeai
