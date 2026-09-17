@@ -4,64 +4,100 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Chatbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400;1,7..72,500&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <h1 class="brand">PDF Chatbot</h1>
+  <div class="desk">
+    <aside class="shelf">
+      <h1 class="wordmark">PDF Chatbot</h1>
 
-      <section class="panel">
-        <h2>Documents</h2>
-        <label id="dropzone" class="dropzone">
-          <input id="file-input" type="file" accept="application/pdf,.pdf" multiple hidden>
-          <span class="dropzone-title">Drop PDFs here</span>
-          <span class="dropzone-hint">or click to choose files</span>
-        </label>
-        <p id="upload-status" class="status" hidden></p>
-        <ul id="pdf-list" class="pdf-list"></ul>
-        <p id="pdf-empty" class="muted">No PDFs uploaded yet.</p>
+      <section class="shelf-section" aria-labelledby="chats-heading">
+        <div class="section-head">
+          <h2 id="chats-heading">Chats</h2>
+          <button id="new-chat" type="button" class="text-button">New chat</button>
+        </div>
+        <ul id="chat-list" class="chat-list"></ul>
       </section>
 
-      <section class="panel">
-        <h2>Settings</h2>
-        <form id="settings-form" class="settings">
-          <label>
+      <section class="shelf-section" aria-labelledby="pdfs-heading">
+        <h2 id="pdfs-heading">PDFs in this chat</h2>
+        <ul id="pdf-list" class="pdf-list"></ul>
+        <p id="pdf-empty" class="shelf-note">No PDFs in this chat yet.</p>
+        <label class="add-pdf" id="add-pdf">
+          <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
+          Add PDF
+        </label>
+        <p id="upload-status" class="shelf-note" role="status" hidden></p>
+      </section>
+
+      <section class="shelf-section" aria-labelledby="model-heading">
+        <h2 id="model-heading">Model</h2>
+        <form id="settings-form" class="model-form">
+          <label class="field">
             <span>Provider</span>
             <select id="provider">
-              <option value="openrouter">openrouter</option>
-              <option value="anthropic">anthropic</option>
-              <option value="gemini">gemini</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="gemini">Gemini</option>
             </select>
           </label>
-          <label>
+          <label class="field">
             <span>API key</span>
-            <input id="api-key" type="password" autocomplete="off" placeholder="Paste your key">
+            <input id="api-key" type="password" autocomplete="off" placeholder="Paste a new key">
           </label>
-          <div class="settings-row">
-            <span id="key-status" class="badge">No key</span>
-            <button type="submit" class="btn">Save</button>
+          <div class="model-row">
+            <span id="key-status" class="key-status" role="status">No key yet</span>
+            <button type="submit" class="button">Save key</button>
           </div>
         </form>
       </section>
     </aside>
 
-    <main class="chat">
-      <div id="server-banner" class="banner" hidden>
-        Can't reach the server. Start it from the project folder with
-        <code>venv/bin/uvicorn app:app</code> and open
-        <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+    <main class="reading" id="reading">
+      <div id="server-banner" class="banner" role="alert" hidden>
+        The server isn't running. Start it from the project folder with
+        <code>venv/bin/uvicorn app:app</code>, then open
+        <a href="http://127.0.0.1:8000">127.0.0.1:8000</a>.
       </div>
-      <div id="messages" class="messages">
-        <div id="welcome" class="welcome">
-          <h2>Ask questions about your PDFs</h2>
-          <p>Upload one or more documents, set your provider and API key, then ask anything. All uploaded PDFs are searched together, and each answer lists the pages it used.</p>
-        </div>
-      </div>
-      <form id="ask-form" class="composer">
-        <textarea id="question" rows="1" placeholder="Ask a question…" required></textarea>
-        <button id="send" type="submit" class="btn btn-primary">Send</button>
-      </form>
+
+      <article class="sheet">
+        <header class="sheet-head">
+          <input id="chat-name" class="chat-name" type="text" maxlength="120" aria-label="Chat name" autocomplete="off">
+          <button id="delete-chat" type="button" class="text-button text-button-quiet">Delete chat</button>
+        </header>
+
+        <div id="messages" class="thread" aria-live="polite"></div>
+
+        <template id="welcome-template">
+          <section id="welcome" class="welcome">
+            <h2 class="welcome-title">Ask your PDFs a question. Each answer shows the pages it came from.</h2>
+
+            <div class="entry specimen" aria-hidden="true">
+              <p class="question">What does the warranty cover?</p>
+              <div class="answer">
+                <p>Parts and labour for two years from the date of purchase. Damage from water or drops isn't included.</p>
+                <div class="source">
+                  <span class="source-file">manual.pdf</span>
+                  <span class="tabs"><span class="tab">p. 7</span><span class="tab" style="--i:1">p. 8</span></span>
+                </div>
+              </div>
+            </div>
+
+            <label class="drop-hint" for="file-input">Drop a PDF onto this page, or <span class="link">choose files</span>.</label>
+          </section>
+        </template>
+
+        <form id="ask-form" class="composer">
+          <label for="question" class="visually-hidden">Your question</label>
+          <textarea id="question" rows="1" placeholder="Ask about your PDFs…" required></textarea>
+          <button id="send" type="submit" class="button button-primary">Ask</button>
+        </form>
+      </article>
+
+      <div class="drop-overlay" aria-hidden="true"><p>Let go to add it to your PDFs</p></div>
     </main>
   </div>
   <script src="app.js"></script>

@@ -1,8 +1,13 @@
+import os
 import uuid
 
 import pymupdf as fitz
 import chromadb
 from llm import ask_llm, get_provider_and_key
+
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+HISTORY_TURNS = 4           # earlier questions and answers sent along with a new question
+HISTORY_ANSWER_CHARS = 1200
 
 
 def load_pdf(path):
@@ -17,12 +22,13 @@ def load_pdf(path):
     return chunks
 
 
-client = chromadb.Client()
+# Saved on disk, so indexed PDFs survive a server restart.
+client = chromadb.PersistentClient(path=os.path.join(DATA_DIR, "chroma"))
 collection = client.get_or_create_collection(name="pdf")
 
 
-def index_pdf(path, filename=None):
-    """Index a PDF and return (doc_id, number of chunks)."""
+def index_pdf(path, filename=None, chat_id="default"):
+    """Index a PDF for one chat and return (doc_id, number of chunks)."""
     filename = filename or path
     doc_id = uuid.uuid4().hex
     chunks = load_pdf(path)
@@ -30,7 +36,7 @@ def index_pdf(path, filename=None):
         collection.add(
             documents=[c[0] for c in chunks],
             ids=[f"{doc_id}-{i}" for i in range(len(chunks))],
-            metadatas=[{"page": c[1], "filename": filename, "doc_id": doc_id} for c in chunks]
+            metadatas=[{"page": c[1], "filename": filename, "doc_id": doc_id, "chat_id": chat_id} for c in chunks]
         )
     return doc_id, len(chunks)
 
@@ -39,18 +45,31 @@ def remove_pdf(doc_id):
     collection.delete(where={"doc_id": doc_id})
 
 
-def ask(question, provider, api_key):
-    if collection.count() == 0:
+def remove_chat(chat_id):
+    collection.delete(where={"chat_id": chat_id})
+
+
+def ask(question, provider, api_key, chat_id="default", history=()):
+    """Answer from the PDFs of one chat. history is a list of earlier {"question", "answer"} pairs."""
+    where = {"chat_id": chat_id}
+    count = len(collection.get(where=where, include=[])["ids"])
+    if count == 0:
         return {"answer": "Upload a PDF first.", "sources": []}
 
-    results = collection.query(query_texts=[question], n_results=min(5, collection.count()))
+    results = collection.query(query_texts=[question], n_results=min(5, count), where=where)
     documents = results["documents"][0]
     metadatas = results["metadatas"][0]
 
     context = "\n\n".join(
         f"[{m['filename']} p.{m['page']}]\n{d}" for d, m in zip(documents, metadatas)
     )
-    prompt = f"Context:\n{context}\n\nQuestion: {question}"
+    earlier = "\n\n".join(
+        f"Q: {h['question']}\nA: {h['answer'][:HISTORY_ANSWER_CHARS]}" for h in list(history)[-HISTORY_TURNS:]
+    )
+    prompt = f"Context:\n{context}\n\n"
+    if earlier:
+        prompt += f"Earlier in this conversation:\n{earlier}\n\n"
+    prompt += f"Question: {question}"
 
     sources = []
     for m in metadatas:
@@ -63,9 +82,13 @@ def ask(question, provider, api_key):
 
 if __name__ == '__main__':
     provider, api_key = get_provider_and_key()
-    index_pdf('ai-pdf-chatbot-test.pdf')
+    remove_chat("cli")  # start fresh instead of piling up copies in the saved index
+    index_pdf('ai-pdf-chatbot-test.pdf', chat_id="cli")
+    history = []
     while True:
         q = input("\nAsk: ")
         if q == 'exit':
             break
-        print(ask(q, provider, api_key)["answer"])
+        answer = ask(q, provider, api_key, chat_id="cli", history=history)["answer"]
+        history.append({"question": q, "answer": answer})
+        print(answer)
