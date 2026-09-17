@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PDF Chatbot</title>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="layout">
@@ -28,7 +28,11 @@
         <form id="settings-form" class="settings">
           <label>
             <span>Provider</span>
-            <select id="provider"></select>
+            <select id="provider">
+              <option value="openrouter">openrouter</option>
+              <option value="anthropic">anthropic</option>
+              <option value="gemini">gemini</option>
+            </select>
           </label>
           <label>
             <span>API key</span>
@@ -43,6 +47,11 @@
     </aside>
 
     <main class="chat">
+      <div id="server-banner" class="banner" hidden>
+        Can't reach the server. Start it from the project folder with
+        <code>venv/bin/uvicorn app:app</code> and open
+        <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.
+      </div>
       <div id="messages" class="messages">
         <div id="welcome" class="welcome">
           <h2>Ask questions about your PDFs</h2>
@@ -55,6 +64,6 @@
       </form>
     </main>
   </div>
-  <script src="/static/app.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
