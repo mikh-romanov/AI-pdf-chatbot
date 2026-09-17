@@ -3,38 +3,52 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>PDF Chatbot</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=Literata:ital,opsz,wght@0,7..72,400;0,7..72,500;0,7..72,600;1,7..72,400;1,7..72,500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="desk">
-    <aside class="shelf">
-      <h1 class="wordmark">PDF Chatbot</h1>
+  <div class="glow glow-a" aria-hidden="true"></div>
+  <div class="glow glow-b" aria-hidden="true"></div>
 
-      <section class="shelf-section" aria-labelledby="chats-heading">
-        <div class="section-head">
-          <h2 id="chats-heading">Chats</h2>
-          <button id="new-chat" type="button" class="text-button">New chat</button>
-        </div>
+  <div class="app">
+    <aside class="sidebar glass">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">PDF Chatbot</span>
+      </div>
+
+      <button id="new-chat" type="button" class="new-chat">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        New chat
+      </button>
+
+      <section class="side-section side-chats" aria-labelledby="chats-heading">
+        <h2 id="chats-heading" class="side-heading">Chats</h2>
         <ul id="chat-list" class="chat-list"></ul>
       </section>
 
-      <section class="shelf-section" aria-labelledby="pdfs-heading">
-        <h2 id="pdfs-heading">PDFs in this chat</h2>
+      <section class="side-section" aria-labelledby="pdfs-heading">
+        <h2 id="pdfs-heading" class="side-heading">Files in this chat</h2>
         <ul id="pdf-list" class="pdf-list"></ul>
-        <p id="pdf-empty" class="shelf-note">No PDFs in this chat yet.</p>
+        <p id="pdf-empty" class="side-note">No files yet.</p>
         <label class="add-pdf" id="add-pdf">
           <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M5 20h14"/></svg>
           Add PDF
         </label>
-        <p id="upload-status" class="shelf-note" role="status" hidden></p>
+        <p id="upload-status" class="side-note" role="status" hidden></p>
       </section>
 
-      <section class="shelf-section" aria-labelledby="model-heading">
-        <h2 id="model-heading">Model</h2>
+      <details class="model" id="model">
+        <summary>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+          <span class="model-title">Model</span>
+          <span id="model-summary" class="model-summary"></span>
+        </summary>
         <form id="settings-form" class="model-form">
           <label class="field">
             <span>Provider</span>
@@ -53,54 +67,47 @@
             <button type="submit" class="button">Save key</button>
           </div>
         </form>
-      </section>
+      </details>
     </aside>
 
-    <main class="reading" id="reading">
+    <main class="main" id="reading">
+      <header class="topbar">
+        <input id="chat-name" class="chat-name" type="text" maxlength="120" aria-label="Chat name" autocomplete="off">
+        <button id="delete-chat" type="button" class="icon-button" aria-label="Delete chat" title="Delete chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+        </button>
+      </header>
+
       <div id="server-banner" class="banner" role="alert" hidden>
         The server isn't running. Start it from the project folder with
         <code>venv/bin/uvicorn app:app</code>, then open
         <a href="http://127.0.0.1:8000">127.0.0.1:8000</a>.
       </div>
 
-      <article class="sheet">
-        <header class="sheet-head">
-          <input id="chat-name" class="chat-name" type="text" maxlength="120" aria-label="Chat name" autocomplete="off">
-          <button id="delete-chat" type="button" class="text-button text-button-quiet">Delete chat</button>
-        </header>
+      <div id="messages" class="thread" aria-live="polite"></div>
 
-        <div id="messages" class="thread" aria-live="polite"></div>
+      <template id="welcome-template">
+        <section id="welcome" class="welcome">
+          <div class="orb" aria-hidden="true"></div>
+          <h1 class="welcome-title">Chat with your PDFs</h1>
+          <p class="welcome-text">Add a document, ask anything about it, and see the exact pages every answer comes from.</p>
+          <label class="drop-hint" for="file-input">Drop a PDF here, or <span class="link">choose files</span>.</label>
+        </section>
+      </template>
 
-        <template id="welcome-template">
-          <section id="welcome" class="welcome">
-            <h2 class="welcome-title">Ask your PDFs a question. Each answer shows the pages it came from.</h2>
+      <form id="ask-form" class="composer">
+        <label for="question" class="visually-hidden">Your question</label>
+        <textarea id="question" rows="1" placeholder="Ask anything about your PDFs…" required></textarea>
+        <button id="send" type="submit" class="send" aria-label="Send question">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+        </button>
+      </form>
 
-            <div class="entry specimen" aria-hidden="true">
-              <p class="question">What does the warranty cover?</p>
-              <div class="answer">
-                <p>Parts and labour for two years from the date of purchase. Damage from water or drops isn't included.</p>
-                <div class="source">
-                  <span class="source-file">manual.pdf</span>
-                  <span class="tabs"><span class="tab">p. 7</span><span class="tab" style="--i:1">p. 8</span></span>
-                </div>
-              </div>
-            </div>
-
-            <label class="drop-hint" for="file-input">Drop a PDF onto this page, or <span class="link">choose files</span>.</label>
-          </section>
-        </template>
-
-        <form id="ask-form" class="composer">
-          <label for="question" class="visually-hidden">Your question</label>
-          <textarea id="question" rows="1" placeholder="Ask about your PDFs…" required></textarea>
-          <button id="send" type="submit" class="button button-primary">Ask</button>
-        </form>
-      </article>
-
-      <div class="drop-overlay" aria-hidden="true"><p>Let go to add it to your PDFs</p></div>
+      <div class="drop-overlay" aria-hidden="true"><p>Drop to add to this chat</p></div>
     </main>
   </div>
-  <div id="excerpt" class="excerpt" role="tooltip" hidden>
+
+  <div id="excerpt" class="excerpt glass" role="tooltip" hidden>
     <p id="excerpt-where" class="excerpt-where"></p>
     <div id="excerpt-text" class="excerpt-text"></div>
   </div>

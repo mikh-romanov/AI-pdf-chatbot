@@ -190,12 +190,12 @@ function updateDropHint() {
   const count = chat ? chat.pdfs.length : 0;
   hint.replaceChildren();
   if (count) {
-    hint.textContent = `${plural(count, "PDF")} ready. Type your question below, or drop another PDF onto this page.`;
+    hint.textContent = `${plural(count, "PDF")} ready. Ask a question below, or drop another PDF here.`;
   } else {
     const link = document.createElement("span");
     link.className = "link";
     link.textContent = "choose files";
-    hint.append("Drop a PDF onto this page, or ", link, ".");
+    hint.append("Drop a PDF here, or ", link, ".");
   }
 }
 
@@ -268,6 +268,9 @@ function renderSettings(s) {
   const status = $("key-status");
   status.textContent = s.has_key ? "Key saved" : "No key yet";
   status.classList.toggle("ok", s.has_key);
+  const label = $("provider").selectedOptions[0]?.textContent || s.provider;
+  $("model-summary").textContent = s.has_key ? label : `${label}, no key`;
+  if (!s.has_key) $("model").open = true; // nothing works without a key, so show the form
 }
 
 $("settings-form").addEventListener("submit", async (e) => {
@@ -361,11 +364,11 @@ function addQuestion(text) {
 function addAnswer(entry, kind, text, sources = [], { fresh = true } = {}) {
   const a = document.createElement("div");
   a.className = kind === "answer" ? "answer" : `answer ${kind}`;
-  if (fresh) a.classList.add("fresh"); // only new answers draw their highlighter tabs
+  if (fresh) a.classList.add("fresh"); // only new answers animate in
   if (kind === "answer") a.innerHTML = renderMarkdown(text);
   else a.textContent = text;
 
-  // Cited pages, grouped by file: the file name once, then a highlighter tab per page.
+  // Cited pages, grouped by file: the file name once, then a page pill per page.
   // Hovering, focusing or tapping a tab shows the text the answer was built from.
   const byFile = new Map();
   for (const s of sources) {
