@@ -1,11 +1,15 @@
 import os
+import sys
+
 from dotenv import load_dotenv
 
-load_dotenv()
+ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+
+load_dotenv(ENV_FILE)
 
 PROVIDERS = ("openrouter", "anthropic", "gemini")
 
-OPENROUTER_MODEL = "ling-3.0-flash-vl:free"
+OPENROUTER_MODEL = "qwen/qwen3.8-27b:free"  # free tier; "inclusionai/ling-3.0-flash-vl" is the paid model used before
 ANTHROPIC_MODEL = "claude-sonnet-4-6"
 GEMINI_MODEL = "gemini-1.5-flash"
 
@@ -19,19 +23,70 @@ def default_settings():
     api_key = os.getenv(f"{provider.upper()}_API_KEY") if provider else None
     return provider, api_key
 
+#check this function for logic errors
+
+def remember_settings(provider, api_key):
+    """Write the provider and its key to .env, keeping every other line of the file.
+
+    .env is listed in .gitignore, so the key stays on this machine.
+    """
+    key_name = f"{provider.upper()}_API_KEY"
+    wanted = {"LLM_PROVIDER": provider, key_name: api_key}
+
+    try:
+        with open(ENV_FILE, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except FileNotFoundError:
+        lines = []
+
+    kept = []
+    for line in lines:
+        name = line.split("=", 1)[0].strip()
+        if name in wanted:
+            kept.append(f"{name}={wanted.pop(name)}")   # replace in place
+        else:
+            kept.append(line)
+    kept += [f"{name}={value}" for name, value in wanted.items()]   # whatever was not in the file
+
+    with open(ENV_FILE, "w", encoding="utf-8") as f:
+        f.write("\n".join(kept).strip() + "\n")
+
+    os.environ.update({"LLM_PROVIDER": provider, key_name: api_key})
+
+
+def _prompt(question):
+    """Ask in the terminal. Quit cleanly if there is nothing to read (Ctrl+D, or piped input)."""
+    try:
+        return input(question).strip()
+    except EOFError:
+        raise SystemExit("\nNo answer given, quitting.")
+
 
 def get_provider_and_key():
+    """Provider and key for the terminal version, asking until both are usable."""
     provider, api_key = default_settings()
-    if not provider:
-        provider = input("Which provider? (openrouter/anthropic/gemini): ").strip().lower()
+
+    if provider and provider not in PROVIDERS:
+        print(f"LLM_PROVIDER in .env is {provider!r}, which is not supported.")
+        provider, api_key = None, None
+
+    while provider not in PROVIDERS:
+        provider = _prompt(f"Which provider? ({'/'.join(PROVIDERS)}): ").lower()
+        if provider not in PROVIDERS:
+            print(f"Please type one of: {', '.join(PROVIDERS)}")
+            continue
         api_key = os.getenv(f"{provider.upper()}_API_KEY")
-    if not api_key:
-        api_key = input(f"Enter your {provider} API key: ").strip()
+
+    while not api_key:
+        api_key = _prompt(f"Enter your {provider} API key: ")
+        if not api_key:
+            print("The key can't be empty. Press Ctrl+C to quit.")
 
     return provider, api_key
 
 
 def _error_text(e):
+    print(f"LLM request failed: {type(e).__name__}: {e}", file=sys.stderr)
     if '429' in str(e) or 'rate' in str(e).lower():
         return RATE_LIMIT_MESSAGE
     return ERROR_MESSAGE

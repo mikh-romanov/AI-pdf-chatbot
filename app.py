@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 import chatbot
 import chats
+import llm
 from llm import ERROR_MESSAGE, PROVIDERS, RATE_LIMIT_MESSAGE, default_settings
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -120,6 +121,8 @@ def save_settings(new: Settings):
     if not key:
         key = os.getenv(f"{new.provider.upper()}_API_KEY")  # fall back to .env
     settings.update(provider=new.provider, api_key=key or None)
+    if key:
+        llm.remember_settings(new.provider, key)  # so the key survives a restart
     return get_settings()
 
 
