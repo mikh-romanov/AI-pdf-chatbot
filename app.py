@@ -18,12 +18,14 @@ app = FastAPI(title="AI PDF Chatbot")
 
 # The provider and key stay in memory only; chats and their PDFs are saved in data/.
 provider, api_key = default_settings()
-settings = {"provider": provider or "openrouter", "api_key": api_key}
+settings = {"provider": provider or "openrouter", "api_key": api_key,
+            "models": dict(llm.DEFAULT_MODELS)}   # the chosen model, per provider
 
 
 class Settings(BaseModel):
     provider: str
     api_key: str = ""
+    model: str = ""
 
 
 class Question(BaseModel):
@@ -108,7 +110,21 @@ def delete_pdf(chat_id: str, doc_id: str):
 
 @app.get("/api/settings")
 def get_settings():
-    return {"provider": settings["provider"], "has_key": bool(settings["api_key"]), "providers": PROVIDERS}
+    return {"provider": settings["provider"], "has_key": bool(settings["api_key"]),
+            "providers": PROVIDERS, "model": settings["models"][settings["provider"]]}
+
+
+@app.get("/api/models")
+def list_models():
+    """Models the current provider offers for this key, for the dropdown."""
+    provider, key = settings["provider"], settings["api_key"]
+    if not key:
+        raise HTTPException(400, f"Add an API key for {provider} first")
+    try:
+        models = llm.list_models(provider, key)
+    except Exception as e:
+        raise HTTPException(502, f"Could not load models: {e}")
+    return {"models": models, "model": settings["models"][provider]}
 
 
 @app.post("/api/settings")
@@ -120,9 +136,11 @@ def save_settings(new: Settings):
         key = settings["api_key"]  # keep the current key when only re-saving
     if not key:
         key = os.getenv(f"{new.provider.upper()}_API_KEY")  # fall back to .env
+    model = new.model.strip() or settings["models"][new.provider]
+    settings["models"][new.provider] = model
     settings.update(provider=new.provider, api_key=key or None)
     if key:
-        llm.remember_settings(new.provider, key)  # so the key survives a restart
+        llm.remember_settings(new.provider, key, model)  # so both survive a restart
     return get_settings()
 
 
@@ -137,7 +155,8 @@ def ask(chat_id: str, q: Question):
     if not settings["api_key"]:
         raise HTTPException(400, f"Add an API key for {settings['provider']} under Model")
 
-    result = chatbot.ask(question, settings["provider"], settings["api_key"], chat_id, chat["messages"])
+    result = chatbot.ask(question, settings["provider"], settings["api_key"], chat_id, chat["messages"],
+                         model=settings["models"][settings["provider"]])
     if result["answer"] in (RATE_LIMIT_MESSAGE, ERROR_MESSAGE):
         raise HTTPException(502, result["answer"])  # don't save failed answers into the chat
 

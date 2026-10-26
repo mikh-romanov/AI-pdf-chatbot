@@ -85,6 +85,7 @@ function showChat(data, { redrawThread = true } = {}) {
     summary.pdf_count = chat.pdfs.length;
   }
   renderChatList();
+  updateNewChatButton();
 }
 
 async function openChat(id) {
@@ -96,6 +97,14 @@ async function openChat(id) {
     await refreshChatList();
     if (chatList.length) showChat(await api("GET", `/api/chats/${chatList[0].id}`));
   }
+}
+
+// An unused chat is already waiting, so there is nothing to gain from a second one.
+function updateNewChatButton() {
+  const button = $("new-chat");
+  const empty = Boolean(chat) && chat.messages.length === 0;
+  button.disabled = empty;
+  button.title = empty ? "Ask something in this chat first" : "";
 }
 
 async function newChat() {
@@ -269,9 +278,42 @@ function renderSettings(s) {
   status.textContent = s.has_key ? "Key saved" : "No key yet";
   status.classList.toggle("ok", s.has_key);
   const label = $("provider").selectedOptions[0]?.textContent || s.provider;
-  $("model-summary").textContent = s.has_key ? label : `${label}, no key`;
+  $("model-summary").textContent = s.has_key ? `${label}, ${s.model}` : `${label}, no key`;
   if (!s.has_key) $("model").open = true; // nothing works without a key, so show the form
+  showModels([s.model], s.model);         // the saved one, until the full list arrives
+  loadModels(s);
 }
+
+// Fill the dropdown. `current` stays selected even if the provider doesn't list it.
+function showModels(models, current, note = "Add a key to load models") {
+  const select = $("model-select");
+  const names = models.filter(Boolean);
+  if (current && !names.includes(current)) names.unshift(current);
+  select.replaceChildren();
+  for (const name of names) select.append(new Option(name, name));
+  if (!names.length) select.append(new Option(note, ""));
+  select.value = current || "";
+}
+
+async function loadModels(s) {
+  if (!s.has_key) return;
+  try {
+    const data = await api("GET", "/api/models");
+    showModels(data.models, data.model);
+  } catch (err) {
+    // The saved model still works; only the list of alternatives is missing.
+    showModels([], s.model, `Couldn't load the list: ${err.message}`);
+  }
+}
+
+// Switching provider: show that provider's own models and key state.
+$("provider").addEventListener("change", async () => {
+  try {
+    renderSettings(await api("POST", "/api/settings", { provider: $("provider").value }));
+  } catch (err) {
+    $("key-status").textContent = err.message;
+  }
+});
 
 $("settings-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -279,6 +321,7 @@ $("settings-form").addEventListener("submit", async (e) => {
     const s = await api("POST", "/api/settings", {
       provider: $("provider").value,
       api_key: $("api-key").value,
+      model: $("model-select").value,
     });
     $("api-key").value = "";
     renderSettings(s);
@@ -518,6 +561,7 @@ $("ask-form").addEventListener("submit", async (e) => {
   try {
     const message = await api("POST", `/api/chats/${target.id}/ask`, { question: text });
     target.messages.push(message);
+    updateNewChatButton();
     waiting.remove();
     if (chat === target) addAnswer(entry, "answer", message.answer, message.sources);
     const summary = chatList.find((c) => c.id === target.id);
@@ -543,4 +587,6 @@ async function start() {
 }
 
 start().catch(() => {});
-api("GET", "/api/settings").then(renderSettings).catch(() => {});
+api("GET", "/api/settings")
+  .then(renderSettings)
+  .catch((err) => showModels([], null, err.message));   // say why, instead of sitting on "Loading…"

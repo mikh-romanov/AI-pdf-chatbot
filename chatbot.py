@@ -49,7 +49,7 @@ def remove_chat(chat_id):
     collection.delete(where={"chat_id": chat_id})
 
 
-def ask(question, provider, api_key, chat_id="default", history=()):
+def ask(question, provider, api_key, chat_id="default", history=(), model=None):
     """Answer from the PDFs of one chat. history is a list of earlier {"question", "answer"} pairs."""
     where = {"chat_id": chat_id}
     count = len(collection.get(where=where, include=[])["ids"])
@@ -71,7 +71,7 @@ def ask(question, provider, api_key, chat_id="default", history=()):
         prompt += f"Earlier in this conversation:\n{earlier}\n\n"
     prompt += f"Question: {question}"
 
-    return {"answer": ask_llm(prompt, provider, api_key),
+    return {"answer": ask_llm(prompt, provider, api_key, model),
             "sources": collect_sources(results["ids"][0], documents, metadatas)}
 
 
