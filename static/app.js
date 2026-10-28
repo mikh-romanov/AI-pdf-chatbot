@@ -232,6 +232,21 @@ function setUploadStatus(text, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+// Re-read a chat from the server, for when its contents may have changed under us.
+async function showCurrent(id) {
+  try {
+    const fresh = await api("GET", `/api/chats/${id}`);
+    if (chat && chat.id === id) {
+      showChat(fresh, { redrawThread: false });
+      updateDropHint();
+    } else {
+      await refreshChatList();
+    }
+  } catch {
+    // Nothing to correct if the server can't be reached; the banner already says so.
+  }
+}
+
 async function uploadFiles(fileList) {
   if (!chat) return;
   const files = [...fileList].filter((f) => f.name.toLowerCase().endsWith(".pdf"));
@@ -257,6 +272,7 @@ async function uploadFiles(fileList) {
     }
   } catch (e) {
     setUploadStatus(e.message, true);
+    await showCurrent(target);   // a rejected batch can still have saved its good files
   } finally {
     $("add-pdf").classList.remove("busy");
     $("file-input").value = "";

@@ -165,6 +165,9 @@ def ask(chat_id: str, q: Question):
         raise HTTPException(400, "Type a question first")
     if not chat["pdfs"]:
         raise HTTPException(400, "Add a PDF to this chat first")
+    if not any(pdf["chunks"] for pdf in chat["pdfs"]):
+        names = ", ".join(pdf["filename"] for pdf in chat["pdfs"])
+        raise HTTPException(400, f"No readable text in {names}. Scanned PDFs need text recognition first.")
     if not settings["api_key"]:
         raise HTTPException(400, f"Add an API key for {settings['provider']} under Model")
 

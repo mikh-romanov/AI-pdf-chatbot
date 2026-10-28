@@ -54,7 +54,7 @@ def ask(question, provider, api_key, chat_id="default", history=(), model=None):
     where = {"chat_id": chat_id}
     count = len(collection.get(where=where, include=[])["ids"])
     if count == 0:
-        return {"answer": "Upload a PDF first.", "sources": []}
+        return {"answer": "No readable text in this chat's PDFs.", "sources": []}
 
     results = collection.query(query_texts=[question], n_results=min(5, count), where=where)
     documents = results["documents"][0]
