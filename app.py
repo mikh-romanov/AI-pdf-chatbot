@@ -108,6 +108,19 @@ def delete_pdf(chat_id: str, doc_id: str):
     return chats.remove_pdf(chat_id, doc_id)
 
 
+@app.post("/api/chats/{chat_id}/title")
+def title_chat(chat_id: str):
+    """Name the chat after its first exchange. A chat you renamed yourself is left alone."""
+    chat = find_chat(chat_id)
+    if chat["renamed"] or not chat["messages"] or not settings["api_key"]:
+        return chat
+
+    first = chat["messages"][0]
+    title = llm.suggest_title(first["question"], first["answer"], settings["provider"],
+                              settings["api_key"], settings["models"][settings["provider"]])
+    return chats.suggest_name(chat_id, title) if title else chat
+
+
 @app.get("/api/settings")
 def get_settings():
     return {"provider": settings["provider"], "has_key": bool(settings["api_key"]),

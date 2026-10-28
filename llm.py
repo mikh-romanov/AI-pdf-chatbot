@@ -29,7 +29,6 @@ def default_settings():
     api_key = os.getenv(f"{provider.upper()}_API_KEY") if provider else None
     return provider, api_key
 
-#check this function for logic errors
 
 def list_models(provider, api_key):
     """Model ids a provider offers, for the dropdown. Raises if the key is refused.
@@ -120,6 +119,24 @@ def get_provider_and_key():
             print("The key can't be empty. Press Ctrl+C to quit.")
 
     return provider, api_key
+
+
+TITLE_PROMPT = (
+    "Give this conversation a title of at most 5 words, naming its subject. "
+    "Reply with the title alone: no quotation marks, no final period, no explanation.\n\n"
+    "Question: {question}\nAnswer: {answer}"
+)
+
+
+def suggest_title(question, answer, provider, api_key, model=None):
+    """A short title for a chat, or None if the model can't supply a usable one."""
+    prompt = TITLE_PROMPT.format(question=question[:500], answer=answer[:1000])
+    title = ask_llm(prompt, provider, api_key, model)
+    if not title or title in (RATE_LIMIT_MESSAGE, ERROR_MESSAGE):
+        return None
+    title = title.strip().strip('"\'').rstrip(".").strip()
+    title = " ".join(title.split())          # the model sometimes answers over several lines
+    return title[:60] or None
 
 
 def _error_text(e):

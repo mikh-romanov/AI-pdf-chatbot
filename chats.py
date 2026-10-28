@@ -45,7 +45,7 @@ def get_chat(chat_id):
 
 def create_chat():
     now = time.time()
-    chat = {"id": uuid.uuid4().hex, "name": DEFAULT_NAME, "renamed": False,
+    chat = {"id": uuid.uuid4().hex, "name": DEFAULT_NAME, "renamed": False, "titled": False,
             "created": now, "updated": now, "pdfs": [], "messages": []}
     with _lock:
         chats = _load()
@@ -73,10 +73,19 @@ def rename_chat(chat_id, name):
     return update_chat(chat_id, change)
 
 
+def suggest_name(chat_id, name):
+    """Name a chat from the model's suggestion, unless the user named it by hand."""
+    def change(chat):
+        if not chat["renamed"]:
+            chat["name"] = name
+            chat["titled"] = True
+    return update_chat(chat_id, change)
+
+
 def add_pdf(chat_id, pdf):
     def change(chat):
         chat["pdfs"].append(pdf)
-        if not chat["renamed"] and chat["name"] == DEFAULT_NAME:
+        if not chat["renamed"] and not chat.get("titled") and chat["name"] == DEFAULT_NAME:
             chat["name"] = os.path.splitext(pdf["filename"])[0]
         chat["updated"] = time.time()
     return update_chat(chat_id, change)

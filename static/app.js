@@ -116,6 +116,23 @@ async function newChat() {
 
 $("new-chat").addEventListener("click", () => newChat().catch(() => {}));
 
+// Runs after the first answer, in its own request so the answer isn't held up.
+async function nameChat(target) {
+  try {
+    const named = await api("POST", `/api/chats/${target.id}/title`);
+    target.name = named.name;
+    target.titled = named.titled;
+    if (chat === target) showChat(target, { redrawThread: false });
+    else {
+      const summary = chatList.find((c) => c.id === target.id);
+      if (summary) summary.name = named.name;
+      renderChatList();
+    }
+  } catch {
+    // Keeping the old name is fine; a title is a nicety, not part of the answer.
+  }
+}
+
 async function saveName() {
   const input = $("chat-name");
   const name = input.value.trim();
@@ -567,6 +584,7 @@ $("ask-form").addEventListener("submit", async (e) => {
     const summary = chatList.find((c) => c.id === target.id);
     if (summary) chatList = [summary, ...chatList.filter((c) => c !== summary)]; // most recent first
     renderChatList();
+    if (target.messages.length === 1) nameChat(target);   // the model titles it after the first answer
   } catch (err) {
     waiting.remove();
     if (chat === target) addAnswer(entry, "error", err.message);
