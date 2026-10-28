@@ -3,5 +3,3 @@ venv/
 __pycache__/
 .env
 data/
-notes.md
-ai-pdf-chatbot-test.pdf
